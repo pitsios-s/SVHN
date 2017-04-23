@@ -12,6 +12,8 @@
 .idea/**/vcs.xml
 .idea/inspectionProfiles/Project_Default.xml
 SVHN.iml
+res/test_32x32.mat
+res/train_32x32.mat
 .idea/**/tasks.xml
 .idea/dictionaries
 

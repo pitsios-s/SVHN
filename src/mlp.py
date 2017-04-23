@@ -2,9 +2,50 @@ from __future__ import print_function
 
 # Import SVHN data
 import tensorflow as tf
-from tensorflow.examples.tutorials.mnist import input_data  # CHANGE
-mnist = input_data.read_data_sets("/tmp/data/", one_hot=True)  # CHANGE
+import scipy.io
+import numpy as np
 
+
+def one_hot_encode(data, length):
+    """Creates a one-hot encoding vector
+        Args:
+            data: The data to be converted
+            length: The length of the one-hot encoded vectors
+        Returns:
+            An array of one-hot encoded items
+    """
+    n = data.shape[0]
+    one_hot = np.zeros(shape=(data.shape[0], length))
+    for s in range(n):
+        temp = [0 * v for v in range(0, length)]
+        temp[data[s][0]] = 1
+        one_hot[s] = temp
+
+    return one_hot
+
+
+def flatten_data(data):
+    """Flattens an image of size n * n * 3, into a an array of size N * 1, where N = n * n * 3
+        Args:
+            data: The array to be flattened 
+        Returns:
+            A flattened array
+    """
+    n = data.shape[3]
+    flattened = np.zeros(shape=(n, 3072))
+    for s in range(n):
+        flattened[s] = data[:, :, :, s].flatten().astype(np.float32)
+
+    return flattened
+
+
+svhn_train = scipy.io.loadmat("../res/train_32x32.mat")
+svhn_train_data = flatten_data(svhn_train['X'])
+svhn_train_labels = one_hot_encode(svhn_train['y'], 11)
+
+svhn_test = scipy.io.loadmat("../res/test_32x32.mat")
+svhn_test_data = flatten_data(svhn_test['X'])
+svhn_test_labels = one_hot_encode(svhn_test['y'], 11)
 
 # Parameters
 learning_rate = 0.001
@@ -16,8 +57,8 @@ display_step = 1
 # Network Parameters
 n_hidden_1 = 256  # 1st layer number of features
 n_hidden_2 = 256  # 2nd layer number of features
-n_input = 784  # MNIST data input (img shape: 28*28)
-n_classes = 10  # MNIST total classes (0-9 digits)
+n_input = 3072  # SVHN data input (img shape: 32*32*3)
+n_classes = 11  # SVHN total classes (0-10 digits)
 
 
 # tf Graph input
@@ -51,6 +92,7 @@ def multilayer_perceptron(x, w, b):
 
     return out_layer
 
+
 # Construct model
 pred = multilayer_perceptron(X, weights, biases)
 # Test model
@@ -75,10 +117,11 @@ with tf.Session() as sess:
     for epoch in range(training_epochs):
         avg_cost = 0.
         avg_acc = 0.
-        total_batch = int(mnist.train.num_examples/batch_size)
+        total_batch = int(svhn_train['X'].shape[3] / batch_size)
+
         # Loop over all batches
         for i in range(total_batch):
-            batch_x, batch_y = mnist.train.next_batch(batch_size)
+            batch_x, batch_y = svhn_train_data[i * 100:(i + 1) * 100], svhn_train_labels[i * 100:(i + 1) * 100]
             # Run optimization op (backprop) and cost op (to get loss value)
             _, c = sess.run([optimizer, cost], feed_dict={X: batch_x, Y: batch_y})
             batch_acc = accuracy.eval({X: batch_x, Y: batch_y})
@@ -87,7 +130,7 @@ with tf.Session() as sess:
             avg_acc += batch_acc / total_batch
         # Display logs per epoch step
         if epoch % display_step == 0:
-            test_acc = accuracy.eval({X: mnist.test.images, Y: mnist.test.labels})
+            test_acc = accuracy.eval({X: svhn_test_data, Y: svhn_test_labels})
             print(
                 "Epoch:",
                 '%04d' % (epoch+1),

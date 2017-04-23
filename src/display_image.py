@@ -2,8 +2,10 @@ import scipy.io
 from matplotlib import pyplot as plt
 
 # Read .mat file
-mat = scipy.io.loadmat('file.mat')
+mat = scipy.io.loadmat("../res/test_32x32.mat")
 
-# Disaply first image
+# Display first image
 plt.imshow(mat['X'][:, :, :, 0], interpolation='nearest')
 plt.show()
+
+print (mat['y'].shape)
