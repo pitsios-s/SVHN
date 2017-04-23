@@ -18,7 +18,13 @@ def one_hot_encode(data, length):
     one_hot = np.zeros(shape=(data.shape[0], length))
     for s in range(n):
         temp = [0 * v for v in range(0, length)]
-        temp[data[s][0]] = 1
+
+        num = data[s][0]
+        if num == 10:
+            temp[0] = 1
+        else:
+            temp[num] = 1
+
         one_hot[s] = temp
 
     return one_hot
@@ -39,14 +45,6 @@ def flatten_data(data):
     return flattened
 
 
-svhn_train = scipy.io.loadmat("../res/train_32x32.mat")
-svhn_train_data = flatten_data(svhn_train['X'])
-svhn_train_labels = one_hot_encode(svhn_train['y'], 11)
-
-svhn_test = scipy.io.loadmat("../res/test_32x32.mat")
-svhn_test_data = flatten_data(svhn_test['X'])
-svhn_test_labels = one_hot_encode(svhn_test['y'], 11)
-
 # Parameters
 learning_rate = 0.001
 training_epochs = 30
@@ -58,7 +56,16 @@ display_step = 1
 n_hidden_1 = 256  # 1st layer number of features
 n_hidden_2 = 256  # 2nd layer number of features
 n_input = 3072  # SVHN data input (img shape: 32*32*3)
-n_classes = 11  # SVHN total classes (0-10 digits)
+n_classes = 10  # SVHN total classes (0-9 digits)
+
+
+svhn_train = scipy.io.loadmat("../res/train_32x32.mat")
+svhn_train_data = flatten_data(svhn_train['X'])
+svhn_train_labels = one_hot_encode(svhn_train['y'], n_classes)
+
+svhn_test = scipy.io.loadmat("../res/test_32x32.mat")
+svhn_test_data = flatten_data(svhn_test['X'])
+svhn_test_labels = one_hot_encode(svhn_test['y'], n_classes)
 
 
 # tf Graph input
