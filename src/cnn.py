@@ -1,127 +1,127 @@
 from __future__ import print_function
 import tensorflow as tf
-
-# Import MNIST data
-from tensorflow.examples.tutorials.mnist import input_data
-mnist = input_data.read_data_sets("/tmp/data/", one_hot=True)
+from svhn import SVHN
 
 
 # Parameters
 learning_rate = 0.001
-training_iters = 500000
-batch_size = 128
-display_step = 100
+training_epochs = 100000
+batch_size = 50
+display_step = 1000
 
 # Network Parameters
-n_input = 784  # MNIST data input (img shape: 28*28)
-n_classes = 10  # MNIST total classes (0-9 digits)
-dropout = 0.75  # Dropout, probability to keep units                  ##### play
+n_input = 1024
+n_classes = 10
+dropout = 0.75
 
-# tf Graph input
-X = tf.placeholder(tf.float32, [None, n_input])
-Y = tf.placeholder(tf.float32, [None, n_classes])
-keep_prob = tf.placeholder(tf.float32)  # dropout (keep probability)
+svhn = SVHN("../res", n_classes, n_input)
 
 
-# Create some wrappers for simplicity
-def conv2d(x, w, b, strides=1):
-    # Conv2D wrapper, with bias and relu activation
-    x = tf.nn.conv2d(x, w, strides=[1, strides, strides, 1], padding='SAME')
-    x = tf.nn.bias_add(x, b)
-    return tf.nn.relu(x)
+def deepnn(x):
+    """deepnn builds the graph for a deep net for classifying digits.
+    Args:
+      x: an input tensor with the dimensions (N_examples, 784), where 784 is the
+      number of pixels in a standard MNIST image.
+    Returns:
+      A tuple (y, keep_prob). y is a tensor of shape (N_examples, 10), with values
+      equal to the logits of classifying the digit into one of 10 classes (the
+      digits 0-9). keep_prob is a scalar placeholder for the probability of
+      dropout.
+    """
+    # Reshape to use within a convolutional neural net.
+    # Last dimension is for "features" - there is only one here, since images are
+    # grayscale -- it would be 3 for an RGB image, 4 for RGBA, etc.
+    x_image = tf.reshape(x, [-1, 32, 32, 1])
+
+    # First convolutional layer - maps one grayscale image to 32 feature maps.
+    W_conv1 = weight_variable([5, 5, 1, 32])
+    b_conv1 = bias_variable([32])
+    h_conv1 = tf.nn.relu(conv2d(x_image, W_conv1) + b_conv1)
+
+    # Pooling layer - downsamples by 2X.
+    h_pool1 = max_pool_2x2(h_conv1)
+
+    # Second convolutional layer -- maps 32 feature maps to 64.
+    W_conv2 = weight_variable([5, 5, 32, 64])
+    b_conv2 = bias_variable([64])
+    h_conv2 = tf.nn.relu(conv2d(h_pool1, W_conv2) + b_conv2)
+
+    # Second pooling layer.
+    h_pool2 = max_pool_2x2(h_conv2)
+
+    # Fully connected layer 1 -- after 2 round of downsampling, our 28x28 image
+    # is down to 7x7x64 feature maps -- maps this to 1024 features.
+    W_fc1 = weight_variable([8 * 8 * 64, 1024])
+    b_fc1 = bias_variable([1024])
+
+    h_pool2_flat = tf.reshape(h_pool2, [-1, 8 * 8 * 64])
+    h_fc1 = tf.nn.relu(tf.matmul(h_pool2_flat, W_fc1) + b_fc1)
+
+    # Dropout - controls the complexity of the model, prevents co-adaptation of
+    # features.
+    keep_prob = tf.placeholder(tf.float32)
+    h_fc1_drop = tf.nn.dropout(h_fc1, keep_prob)
+
+    # Map the 1024 features to 10 classes, one for each digit
+    W_fc2 = weight_variable([1024, 10])
+    b_fc2 = bias_variable([10])
+
+    y_conv = tf.matmul(h_fc1_drop, W_fc2) + b_fc2
+    return y_conv, keep_prob
 
 
-def maxpool2d(x, k=2):
-    # MaxPool2D wrapper
-    # other option is average pooling (or combination)
-    return tf.nn.max_pool(x, ksize=[1, k, k, 1], strides=[1, k, k, 1], padding='SAME')
+def conv2d(x, W):
+    """conv2d returns a 2d convolution layer with full stride."""
+    return tf.nn.conv2d(x, W, strides=[1, 1, 1, 1], padding='SAME')
 
 
-# Create model
-def conv_net(x, w, b, d):
-    # Reshape input picture
-    x = tf.reshape(x, shape=[-1, 32, 32, 1])  # ?
-    #
-    # Convolution Layer
-    conv1 = conv2d(x, w['wc1'], b['bc1'])
-    # Max Pooling (down-sampling)
-    conv1 = maxpool2d(conv1, k=2)
-    #
-    # Convolution Layer
-    conv2 = conv2d(conv1, w['wc2'], b['bc2'])
-    # Max Pooling (down-sampling)
-    conv2 = maxpool2d(conv2, k=2)
-    #
-    # Fully connected layer
-    # Reshape conv2 output to fit fully connected layer input
-    fc1 = tf.reshape(conv2, [-1, w['wd1'].get_shape().as_list()[0]])
-    fc1 = tf.add(tf.matmul(fc1, w['wd1']), b['bd1'])
-    fc1 = tf.nn.relu(fc1)
-    # Apply Dropout
-    fc1 = tf.nn.dropout(fc1, d)
-    #
-    # Output, class prediction
-    out = tf.add(tf.matmul(fc1, w['out']), b['out'])
-
-    return out
+def max_pool_2x2(x):
+    """max_pool_2x2 downsamples a feature map by 2X."""
+    return tf.nn.max_pool(x, ksize=[1, 2, 2, 1],
+                          strides=[1, 2, 2, 1], padding='SAME')
 
 
-# Store layers weight & bias
-weights = {
-    # 5x5 conv, 1 input, 32 outputs
-    'wc1': tf.Variable(tf.random_normal([5, 5, 1, 32])),
-    # 5x5 conv, 32 inputs, 64 outputs
-    'wc2': tf.Variable(tf.random_normal([5, 5, 32, 64])),
-    # fully connected, 7*7*64 inputs, 1024 outputs
-    'wd1': tf.Variable(tf.random_normal([7*7*64, 1024])),
-    # 1024 inputs, 10 outputs (class prediction)
-    'out': tf.Variable(tf.random_normal([1024, n_classes]))
-}
+def weight_variable(shape):
+    """weight_variable generates a weight variable of a given shape."""
+    initial = tf.truncated_normal(shape, stddev=0.1)
+    return tf.Variable(initial)
 
-biases = {
-    'bc1': tf.Variable(tf.random_normal([32])),
-    'bc2': tf.Variable(tf.random_normal([64])),
-    'bd1': tf.Variable(tf.random_normal([1024])),
-    'out': tf.Variable(tf.random_normal([n_classes]))
-}
 
-# Construct model
-pred = conv_net(X, weights, biases, keep_prob)
+def bias_variable(shape):
+    """bias_variable generates a bias variable of a given shape."""
+    initial = tf.constant(0.1, shape=shape)
+    return tf.Variable(initial)
+
+
+# Create the model
+x = tf.placeholder(tf.float32, [None, 1024])
 
 # Define loss and optimizer
-cost = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(logits=pred, labels=Y))
-optimizer = tf.train.AdamOptimizer(learning_rate=learning_rate).minimize(cost)
+y_ = tf.placeholder(tf.float32, [None, 10])
 
-# Evaluate model
-correct_pred = tf.equal(tf.argmax(pred, 1), tf.argmax(Y, 1))
-accuracy = tf.reduce_mean(tf.cast(correct_pred, tf.float32))
+# Build the graph for the deep net
+y_conv, keep_prob = deepnn(x)
 
-# Initializing the variables
-init = tf.global_variables_initializer()
+cross_entropy = tf.reduce_mean(
+    tf.nn.softmax_cross_entropy_with_logits(labels=y_, logits=y_conv))
+train_step = tf.train.AdamOptimizer(1e-4).minimize(cross_entropy)
+correct_prediction = tf.equal(tf.argmax(y_conv, 1), tf.argmax(y_, 1))
+accuracy = tf.reduce_mean(tf.cast(correct_prediction, tf.float32))
 
-# Launch the graph
 with tf.Session() as sess:
-    sess.run(init)
-    step = 1
-    # Keep training until reach max iterations
-    while step * batch_size < training_iters:
-        batch_x, batch_y = mnist.train.next_batch(batch_size)
-        # Run optimization op (backprop)
-        sess.run(optimizer, feed_dict={X: batch_x, Y: batch_y, keep_prob: dropout})
-        if step % display_step == 0:
-            # Calculate batch loss and accuracy
-            loss, acc = sess.run([cost, accuracy], feed_dict={X: batch_x, Y: batch_y, keep_prob: 1.})
-            # Calculate accuracy for 256 mnist test images
-            t_acc = sess.run(accuracy, feed_dict={
-                X: mnist.test.images[:256],
-                Y: mnist.test.labels[:256], keep_prob: 1.})
-            print(
-                "Iter " + str(step*batch_size) +
-                ", Minibatch Loss= " + "{:.6f}".format(loss) +
-                ", Training Accuracy= " + "{:.5f}".format(acc) +
-                ", Testing Accuracy= " + "{:.5f}".format(t_acc)
-            )
-        step += 1
-    print("Optimization Finished!")
+    sess.run(tf.global_variables_initializer())
+    for i in range(20000):
+        batch = svhn.next_train_batch(100)
+        if i % 100 == 0:
+            train_accuracy = accuracy.eval(feed_dict={
+                x: batch[0], y_: batch[1], keep_prob: 1.0})
+            print('step %d, training accuracy %g' % (i, train_accuracy))
+        train_step.run(feed_dict={x: batch[0], y_: batch[1], keep_prob: 0.5})
+
+    test_accuracy = 0
+    for i in range(260):
+        test_batch = svhn.next_test_batch(100)
+        test_accuracy += accuracy.eval(feed_dict={x: test_batch[0], y_: test_batch[1], keep_prob: 1.0})
+    print('Test accuracy %g' % (test_accuracy / 260))
 
 # useful http://www.wildml.com/2015/11/understanding-convolutional-neural-networks-for-nlp/
