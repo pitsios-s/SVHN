@@ -27,6 +27,7 @@ def one_hot_encode(data, length):
 
     return one_hot
 
+
 def flatten_data(data):
     """Flattens an image of size n * n * 3, into a an array of size N * 1, where N = n * n * 3
         Args:
@@ -41,8 +42,10 @@ def flatten_data(data):
 
     return flattened
 
+
 def rgb2gray(rgb):
     return np.dot(rgb[..., :3], [0.299, 0.587, 0.114])
+
 
 # Parameters
 learning_rate = 0.001
@@ -120,7 +123,7 @@ weights = {
     # 5x5 conv, 32 inputs, 64 outputs
     'wc2': tf.Variable(tf.random_normal([5, 5, 32, 64])),
     # fully connected, 7*7*64 inputs, 1024 outputs
-    'wd1': tf.Variable(tf.random_normal([7 * 7 * 64, 1024])),
+    'wd1': tf.Variable(tf.random_normal([8 * 8 * 64, 1024])),
     # 1024 inputs, 10 outputs (class prediction)
     'out': tf.Variable(tf.random_normal([1024, n_classes]))
 }
@@ -159,9 +162,9 @@ with tf.Session() as sess:
         sess.run(optimizer, feed_dict={X: batch_x, Y: batch_y, keep_prob: dropout})
         if step % display_step == 0:
             # Calculate batch loss and accuracy
-            loss, acc = sess.run([cost, accuracy], feed_dict={X: batch_x, Y: batch_y, keep_prob: 1.})
+            loss, acc = sess.run([cost, accuracy], feed_dict={X: batch_x, Y: batch_y, keep_prob: dropout})
             # Calculate accuracy for 256 mnist test images
-            t_acc = accuracy.eval({X: svhn_test_data, Y: svhn_test_labels})
+            t_acc = accuracy.eval({X: svhn_test_data, Y: svhn_test_labels, keep_prob: dropout})
             print(
                 "Iter " + str(step * batch_size) +
                 ", Minibatch Loss= " + "{:.6f}".format(loss) +
