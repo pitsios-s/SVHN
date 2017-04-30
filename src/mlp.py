@@ -1,6 +1,5 @@
 from __future__ import print_function
 
-# Import SVHN data
 import tensorflow as tf
 import scipy.io
 import numpy as np
@@ -38,11 +37,15 @@ def flatten_data(data):
             A flattened array
     """
     n = data.shape[3]
-    flattened = np.zeros(shape=(n, 3072))
+    flattened = np.zeros(shape=(n, 1024))
     for s in range(n):
-        flattened[s] = data[:, :, :, s].flatten().astype(np.float32)
+        flattened[s] = rgb2gray(data[:, :, :, s]).flatten().astype(np.float32)
 
     return flattened
+
+
+def rgb2gray(rgb):
+    return np.dot(rgb[..., :3], [0.299, 0.587, 0.114])
 
 
 # Parameters
@@ -55,13 +58,14 @@ display_step = 1
 # Network Parameters
 n_hidden_1 = 256  # 1st layer number of features
 n_hidden_2 = 256  # 2nd layer number of features
-n_input = 3072  # SVHN data input (img shape: 32*32*3)
+n_input = 1024  # SVHN data input (img shape: 32*32*1)
 n_classes = 10  # SVHN total classes (0-9 digits)
 
 
 svhn_train = scipy.io.loadmat("../res/train_32x32.mat")
 svhn_train_data = flatten_data(svhn_train['X'])
 svhn_train_labels = one_hot_encode(svhn_train['y'], n_classes)
+
 
 svhn_test = scipy.io.loadmat("../res/test_32x32.mat")
 svhn_test_data = flatten_data(svhn_test['X'])
@@ -128,7 +132,8 @@ with tf.Session() as sess:
 
         # Loop over all batches
         for i in range(total_batch):
-            batch_x, batch_y = svhn_train_data[i * 100:(i + 1) * 100], svhn_train_labels[i * 100:(i + 1) * 100]
+            batch_x, batch_y = svhn_train_data[i * batch_size:(i + 1) * batch_size], \
+                               svhn_train_labels[i * batch_size:(i + 1) * batch_size]
             # Run optimization op (backprop) and cost op (to get loss value)
             _, c = sess.run([optimizer, cost], feed_dict={X: batch_x, Y: batch_y})
             batch_acc = accuracy.eval({X: batch_x, Y: batch_y})
