@@ -41,18 +41,18 @@ biases = {
 
 
 def deepnn(x):
-    #   Convolution 1 and RELU
+    # Convolution 1 and RELU
     convolution1 = tf.nn.conv2d(x, weights["layer1"], [1, 1, 1, 1], padding='SAME')
     hidden1 = tf.nn.relu(convolution1 + biases["layer1"])
 
-    #   Max Pool
+    # Max Pool
     hidden2 = tf.nn.max_pool(hidden1, ksize=[1, 2, 2, 1], strides=[1, 2, 2, 1], padding='SAME')
 
-    #   Convolution 2 and RELU
+    # Convolution 2 and RELU
     convolution2 = tf.nn.conv2d(hidden2, weights["layer2"], [1, 1, 1, 1], padding='SAME')
     hidden3 = tf.nn.relu(convolution2 + biases["layer2"])
 
-    #   Max Pool
+    # Max Pool
     hidden4 = tf.nn.max_pool(hidden3, ksize=[1, 2, 2, 1], strides=[1, 2, 2, 1], padding='SAME')
 
     shape = hidden4.get_shape().as_list()
@@ -60,7 +60,7 @@ def deepnn(x):
 
     hidden5 = tf.nn.relu(tf.matmul(reshape, weights["layer3"]) + biases["layer3"])
 
-    #   Dropout
+    # Dropout
     keep_prob = tf.placeholder(tf.float32)
     dropout_layer = tf.nn.dropout(hidden5, keep_prob)
 
@@ -73,7 +73,7 @@ y_conv, keep_prob = deepnn(X)
 cost = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(labels=Y, logits=y_conv))
 optimizer = tf.train.AdamOptimizer(learning_rate).minimize(cost)
 correct_prediction = tf.equal(tf.argmax(y_conv, 1), tf.argmax(Y, 1))
-accuracy = tf.reduce_mean(tf.cast(correct_prediction, tf.float32))
+accuracy = tf.reduce_sum(tf.cast(correct_prediction, tf.float32))
 
 with tf.Session() as sess:
     sess.run(tf.global_variables_initializer())
@@ -86,11 +86,12 @@ with tf.Session() as sess:
 
         if i % display_step == 0:
             train_accuracy = accuracy.eval(feed_dict={X: batch_x, Y: batch_y, keep_prob: 1.0})
-            print('step %d, training accuracy %g' % (i, train_accuracy))
+            print('step %d, training accuracy %g' % (i, train_accuracy / batch_size))
 
     test_accuracy = 0
-    for i in range(261):
+    test_iterations = svhn.test_examples / batch_size + 1
+    for i in range(test_iterations):
         batch_x, batch_y = (svhn.test_data[i * batch_size:(i + 1) * batch_size],
                             svhn.test_labels[i * batch_size:(i + 1) * batch_size])
         test_accuracy += accuracy.eval(feed_dict={X: batch_x, Y: batch_y, keep_prob: 1.0})
-    print('Test accuracy %g' % (test_accuracy / 260))
+    print('Test accuracy %g' % (test_accuracy / svhn.test_examples))
