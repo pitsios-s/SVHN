@@ -1,4 +1,3 @@
-from __future__ import print_function
 import tensorflow as tf
 from svhn import SVHN
 
@@ -6,7 +5,7 @@ from svhn import SVHN
 # Parameters
 learning_rate = 0.001
 training_epochs = 30
-batch_size = 100
+batch_size = 50
 display_step = 1
 
 # Network Parameters
@@ -15,11 +14,12 @@ n_hidden_2 = 256  # 2nd layer number of features
 n_input = 1024  # SVHN data input (img shape: 32*32*1)
 n_classes = 10  # SVHN total classes (0-9 digits)
 
-svhn = SVHN("../res", n_classes, n_input)
+svhn = SVHN("../res", n_classes, True)
+
 
 # tf Graph input
-X = tf.placeholder("float", [None, n_input])
-Y = tf.placeholder("float", [None, n_classes])
+X = tf.placeholder("float32", shape=[None, 32, 32])
+Y = tf.placeholder("float32", shape=[None, n_classes])
 
 
 # TRY MORE OPTIONS (gamma, uniform, multinomial)
@@ -37,6 +37,7 @@ biases = {
 
 # Create model
 def multilayer_perceptron(x, w, b):
+    x = tf.reshape(x, [-1, 32*32])
     # Hidden layer with RELU activation
     layer_1 = tf.add(tf.matmul(x, w['h1']), b['b1'])
     layer_1 = tf.nn.relu(layer_1)  # TRY MORE ACTIVATION FUNCTIONS (tanh, leaky_relu, sigmoid)
@@ -56,7 +57,7 @@ pred = multilayer_perceptron(X, weights, biases)
 correct_prediction = tf.equal(tf.argmax(pred, 1), tf.argmax(Y, 1))
 
 # Calculate accuracy
-accuracy = tf.reduce_mean(tf.cast(correct_prediction, "float"))
+accuracy = tf.reduce_mean(tf.cast(correct_prediction, "float32"))
 
 # Define loss and optimizer
 cost = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(logits=pred, labels=Y))
@@ -79,7 +80,8 @@ with tf.Session() as sess:
 
         # Loop over all batches
         for i in range(total_batch):
-            batch_x, batch_y = svhn.next_train_batch(batch_size)
+            batch_x, batch_y = (svhn.train_data[i * batch_size:(i + 1) * batch_size],
+                                svhn.train_labels[i * batch_size:(i + 1) * batch_size])
 
             # Run optimization op (backprop) and cost op (to get loss value)
             _, c = sess.run([optimizer, cost], feed_dict={X: batch_x, Y: batch_y})

@@ -14,6 +14,7 @@
 SVHN.iml
 res/test_32x32.mat
 res/train_32x32.mat
+res/extra_32x32.mat
 .idea/**/tasks.xml
 .idea/dictionaries
 
