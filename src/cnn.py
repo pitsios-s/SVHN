@@ -3,7 +3,7 @@ from svhn import SVHN
 
 # Parameters
 learning_rate = 0.001
-training_epochs = 30000
+iterations = 30000
 batch_size = 50
 display_step = 1000
 
@@ -12,11 +12,12 @@ channels = 3
 image_size = 32
 n_classes = 10
 dropout = 0.8
-hidden = 128
-depth = 32
-convolution_size = 5
+hidden = 512
+depth_1 = 32
+depth_2 = 64
+filter_size = 5
 
-svhn = SVHN("../res", n_classes)
+svhn = SVHN("../res", n_classes, True)
 
 
 # Create the model
@@ -26,15 +27,15 @@ Y = tf.placeholder(tf.float32, [None, n_classes])
 
 # Weights & Biases
 weights = {
-    "layer1": tf.Variable(tf.truncated_normal([convolution_size, convolution_size, channels, depth], stddev=0.1)),
-    "layer2": tf.Variable(tf.truncated_normal([convolution_size, convolution_size, depth, depth * 2], stddev=0.1)),
-    "layer3": tf.Variable(tf.truncated_normal([image_size // 4 * image_size // 4 * depth * 2, hidden], stddev=0.1)),
+    "layer1": tf.Variable(tf.truncated_normal([filter_size, filter_size, channels, depth_1], stddev=0.1)),
+    "layer2": tf.Variable(tf.truncated_normal([filter_size, filter_size, depth_1, depth_2], stddev=0.1)),
+    "layer3": tf.Variable(tf.truncated_normal([image_size // 4 * image_size // 4 * depth_2, hidden], stddev=0.1)),
     "layer4": tf.Variable(tf.truncated_normal([hidden, n_classes], stddev=0.1))
 }
 
 biases = {
-    "layer1": tf.Variable(tf.constant(1.0, shape=[depth])),
-    "layer2": tf.Variable(tf.constant(1.0, shape=[depth * 2])),
+    "layer1": tf.Variable(tf.constant(1.0, shape=[depth_1])),
+    "layer2": tf.Variable(tf.constant(1.0, shape=[depth_2])),
     "layer3": tf.Variable(tf.constant(1.0, shape=[hidden])),
     "layer4": tf.Variable(tf.constant(1.0, shape=[n_classes]))
 }
@@ -77,7 +78,7 @@ accuracy = tf.reduce_sum(tf.cast(correct_prediction, tf.float32))
 
 with tf.Session() as sess:
     sess.run(tf.global_variables_initializer())
-    for i in range(training_epochs):
+    for i in range(iterations):
         offset = (i * batch_size) % (svhn.train_examples - batch_size)
         batch_x = svhn.train_data[offset:(offset + batch_size)]
         batch_y = svhn.train_labels[offset:(offset + batch_size)]
