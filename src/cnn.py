@@ -13,9 +13,9 @@ image_size = 32
 n_classes = 10
 dropout = 0.9
 hidden = 128
-depth_1 = 32
-depth_2 = 64
-depth_3 = 128
+depth_1 = 16
+depth_2 = 32
+depth_3 = 64
 filter_size = 5
 
 
