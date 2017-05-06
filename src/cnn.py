@@ -11,15 +11,32 @@ display_step = 1000
 channels = 3
 image_size = 32
 n_classes = 10
-dropout = 0.95
+dropout = 0.9
 hidden = 128
-depth_1 = 16
-depth_2 = 32
-depth_3 = 64
+depth_1 = 32
+depth_2 = 64
+depth_3 = 128
 filter_size = 5
 
-svhn = SVHN("../res", n_classes)
 
+def weight_variable(shape):
+    return tf.Variable(tf.truncated_normal(shape, stddev=0.1))
+
+
+def bias_variable(shape):
+    return tf.Variable(tf.constant(1.0, shape=shape))
+
+
+def convolution(x, w):
+    return tf.nn.conv2d(x, w, strides=[1, 1, 1, 1], padding="SAME")
+
+
+def max_pool(x):
+    return tf.nn.max_pool(x, ksize=[1, 2, 2, 1], strides=[1, 2, 2, 1], padding="SAME")
+
+
+# Load data
+svhn = SVHN("../res", n_classes, use_extra=True, gray=False)
 
 # Create the model
 X = tf.placeholder(tf.float32, [None, image_size, image_size, channels])
@@ -28,40 +45,37 @@ Y = tf.placeholder(tf.float32, [None, n_classes])
 
 # Weights & Biases
 weights = {
-    "layer1": tf.Variable(tf.truncated_normal([filter_size, filter_size, channels, depth_1], stddev=0.1)),
-    "layer2": tf.Variable(tf.truncated_normal([filter_size, filter_size, depth_1, depth_2], stddev=0.1)),
-    "layer3": tf.Variable(tf.truncated_normal([filter_size, filter_size, depth_2, depth_3], stddev=0.1)),
-    "layer4": tf.Variable(tf.truncated_normal([image_size // 8 * image_size // 8 * depth_3, hidden], stddev=0.1)),
-    "layer5": tf.Variable(tf.truncated_normal([hidden, n_classes], stddev=0.1))
+    "layer1": weight_variable([filter_size, filter_size, channels, depth_1]),
+    "layer2": weight_variable([filter_size, filter_size, depth_1, depth_2]),
+    "layer3": weight_variable([filter_size, filter_size, depth_2, depth_3]),
+    "layer4": weight_variable([image_size // 8 * image_size // 8 * depth_3, hidden]),
+    "layer5": weight_variable([hidden, n_classes])
 }
 
 biases = {
-    "layer1": tf.Variable(tf.constant(1.0, shape=[depth_1])),
-    "layer2": tf.Variable(tf.constant(1.0, shape=[depth_2])),
-    "layer3": tf.Variable(tf.constant(1.0, shape=[depth_3])),
-    "layer4": tf.Variable(tf.constant(1.0, shape=[hidden])),
-    "layer5": tf.Variable(tf.constant(1.0, shape=[n_classes]))
+    "layer1": bias_variable([depth_1]),
+    "layer2": bias_variable([depth_2]),
+    "layer3": bias_variable([depth_3]),
+    "layer4": bias_variable([hidden]),
+    "layer5": bias_variable([n_classes])
 }
 
 
-def deepnn(x):
-    # Convolution 1 and RELU
-    convolution1 = tf.nn.conv2d(x, weights["layer1"], [1, 1, 1, 1], padding='SAME')
+def cnn(x):
+    # Convolution 1 -> RELU -> Max Pool
+    convolution1 = convolution(x, weights["layer1"])
     hidden1 = tf.nn.relu(convolution1 + biases["layer1"])
-    # Max Pool
-    hidden2 = tf.nn.max_pool(hidden1, ksize=[1, 2, 2, 1], strides=[1, 2, 2, 1], padding='SAME')
+    hidden2 = max_pool(hidden1)
 
-    # Convolution 2 and RELU
-    convolution2 = tf.nn.conv2d(hidden2, weights["layer2"], [1, 1, 1, 1], padding='SAME')
+    # Convolution 2 -> RELU -> Max Pool
+    convolution2 = convolution(hidden2, weights["layer2"])
     hidden3 = tf.nn.relu(convolution2 + biases["layer2"])
-    # Max Pool
-    hidden4 = tf.nn.max_pool(hidden3, ksize=[1, 2, 2, 1], strides=[1, 2, 2, 1], padding='SAME')
+    hidden4 = max_pool(hidden3)
 
-    # Convolution 3 and RELU
-    convolution3 = tf.nn.conv2d(hidden4, weights["layer3"], [1, 1, 1, 1], padding='SAME')
+    # Convolution 3 -> RELU -> Max Pool
+    convolution3 = convolution(hidden4, weights["layer3"])
     hidden5 = tf.nn.relu(convolution3 + biases["layer3"])
-    # Max Pool
-    hidden6 = tf.nn.max_pool(hidden5, ksize=[1, 2, 2, 1], strides=[1, 2, 2, 1], padding='SAME')
+    hidden6 = max_pool(hidden5)
 
     # Fully Connected Layer
     shape = hidden6.get_shape().as_list()
@@ -69,14 +83,14 @@ def deepnn(x):
     hidden7 = tf.nn.relu(tf.matmul(reshape, weights["layer4"]) + biases["layer4"])
 
     # Dropout Layer
-    keep_prob = tf.placeholder(tf.float32)
-    dropout_layer = tf.nn.dropout(hidden7, keep_prob)
+    keep_prob_constant = tf.placeholder(tf.float32)
+    dropout_layer = tf.nn.dropout(hidden7, keep_prob_constant)
 
-    return tf.matmul(dropout_layer, weights["layer5"]) + biases["layer5"], keep_prob
+    return tf.matmul(dropout_layer, weights["layer5"]) + biases["layer5"], keep_prob_constant
 
 
 # Build the graph for the deep net
-y_conv, keep_prob = deepnn(X)
+y_conv, keep_prob = cnn(X)
 
 cost = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(labels=Y, logits=y_conv))
 optimizer = tf.train.AdamOptimizer(learning_rate).minimize(cost)

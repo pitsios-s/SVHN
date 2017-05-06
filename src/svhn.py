@@ -4,7 +4,7 @@ import scipy.io as sio
 
 class SVHN:
 
-    def __init__(self, file_path, n_classes, gray=False):
+    def __init__(self, file_path, n_classes, use_extra=False, gray=False):
         self.n_classes = n_classes
 
         # # Load Train Set
@@ -19,16 +19,13 @@ class SVHN:
         self.test_examples = test['X'].shape[3]
         self.test_data = self.__store_data(test['X'].astype("float32") / 128.0 - 1, self.test_examples, gray)
 
-        # Load extra
-        # extra = sio.loadmat(file_path + "/extra_32x32.mat")
-        # size = extra['X'].shape[3]
-        # self.train_labels = self.__one_hot_encode(extra['y'][0:int(0.7*size)])
-        # self.train_examples = int(0.7*size)
-        # self.train_data = self.__store_data(extra['X'][:, :, :, 0:int(0.7*size)].astype("float32") / 128.0 - 1, self.train_examples, gray)
-        #
-        # self.test_labels = self.__one_hot_encode(extra['y'][int(0.7*size):])
-        # self.test_examples = self.test_labels.shape[0]
-        # self.test_data = self.__store_data(extra['X'][:, :, :, int(0.7*size):].astype("float32") / 128.0 - 1, self.test_examples, gray)
+        # Load Extra dataset as additional training data if necessary
+        if use_extra:
+            extra = sio.loadmat(file_path + "/extra_32x32.mat")
+            self.train_labels = np.append(self.train_labels, self.__one_hot_encode(extra['y']), axis=0)
+            extra_examples = extra['X'].shape[3]
+            self.train_examples += extra_examples
+            self.train_data = np.append(self.train_data, self.__store_data(extra['X'].astype("float32") / 128.0 - 1, extra_examples, gray), axis=0)
 
     def __one_hot_encode(self, data):
         """Creates a one-hot encoding vector
