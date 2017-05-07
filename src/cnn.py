@@ -3,7 +3,7 @@ from svhn import SVHN
 
 # Parameters
 learning_rate = 0.001
-iterations = 30000
+iterations = 50000
 batch_size = 50
 display_step = 1000
 
@@ -17,6 +17,9 @@ depth_1 = 16
 depth_2 = 32
 depth_3 = 64
 filter_size = 5
+normalization_offset = 0.0  # beta
+normalization_scale = 1.0  # gamma
+normalization_epsilon = 0.001  # epsilon
 
 
 def weight_variable(shape):
@@ -61,7 +64,17 @@ biases = {
 }
 
 
+def normalize(x):
+    """ Applies batch normalization """
+    mean, variance = tf.nn.moments(x, [1, 2, 3], keep_dims=True)
+    return tf.nn.batch_normalization(x, mean, variance, normalization_offset, normalization_scale,
+                                     normalization_epsilon)
+
+
 def cnn(x):
+    # Batch normalization
+    x = normalize(x)
+
     # Convolution 1 -> RELU -> Max Pool
     convolution1 = convolution(x, weights["layer1"])
     hidden1 = tf.nn.relu(convolution1 + biases["layer1"])

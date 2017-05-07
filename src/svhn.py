@@ -11,13 +11,13 @@ class SVHN:
         train = sio.loadmat(file_path + "/train_32x32.mat")
         self.train_labels = self.__one_hot_encode(train['y'])
         self.train_examples = train['X'].shape[3]
-        self.train_data = self.__store_data(train['X'].astype("float32") / 128.0 - 1, self.train_examples, gray)
+        self.train_data = self.__store_data(train['X'].astype("float32"), self.train_examples, gray)
 
         # Load Test Set
         test = sio.loadmat("../res/test_32x32.mat")
         self.test_labels = self.__one_hot_encode(test['y'])
         self.test_examples = test['X'].shape[3]
-        self.test_data = self.__store_data(test['X'].astype("float32") / 128.0 - 1, self.test_examples, gray)
+        self.test_data = self.__store_data(test['X'].astype("float32"), self.test_examples, gray)
 
         # Load Extra dataset as additional training data if necessary
         if use_extra:
@@ -25,7 +25,8 @@ class SVHN:
             self.train_labels = np.append(self.train_labels, self.__one_hot_encode(extra['y']), axis=0)
             extra_examples = extra['X'].shape[3]
             self.train_examples += extra_examples
-            self.train_data = np.append(self.train_data, self.__store_data(extra['X'].astype("float32") / 128.0 - 1, extra_examples, gray), axis=0)
+            self.train_data = np.append(self.train_data, self.__store_data(extra['X'].astype("float32"),
+                                                                           extra_examples, gray), axis=0)
 
     def __one_hot_encode(self, data):
         """Creates a one-hot encoding vector

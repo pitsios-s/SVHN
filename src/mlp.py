@@ -1,7 +1,6 @@
 import tensorflow as tf
 from svhn import SVHN
 
-
 # Parameters
 learning_rate = 0.001
 training_epochs = 30
@@ -11,23 +10,25 @@ display_step = 1
 # Network Parameters
 n_hidden_1 = 256  # 1st layer number of features
 n_hidden_2 = 256  # 2nd layer number of features
-n_input = 1024  # SVHN data input (img shape: 32*32*1)
+n_input = 3072  # SVHN data input (img shape: 32*32*3)
 n_classes = 10  # SVHN total classes (0-9 digits)
+normalization_offset = 0.0  # beta
+normalization_scale = 1.0  # gamma
+normalization_epsilon = 0.001  # epsilon
 
-svhn = SVHN("../res", n_classes, True)
+svhn = SVHN("../res", n_classes, use_extra=True, gray=False)
 
 
 # tf Graph input
-X = tf.placeholder("float32", shape=[None, 32, 32])
+X = tf.placeholder("float32", shape=[None, 32, 32, 3])
 Y = tf.placeholder("float32", shape=[None, n_classes])
 
-
-# TRY MORE OPTIONS (gamma, uniform, multinomial)
 weights = {
     'h1': tf.Variable(tf.random_normal([n_input, n_hidden_1])),
     'h2': tf.Variable(tf.random_normal([n_hidden_1, n_hidden_2])),
     'out': tf.Variable(tf.random_normal([n_hidden_2, n_classes]))
 }
+
 biases = {
     'b1': tf.Variable(tf.random_normal([n_hidden_1])),
     'b2': tf.Variable(tf.random_normal([n_hidden_2])),
@@ -35,15 +36,29 @@ biases = {
 }
 
 
+def normalize(x):
+    """ Applies batch normalization """
+    mean, variance = tf.nn.moments(x, [1, 2, 3], keep_dims=True)
+    return tf.nn.batch_normalization(x, mean, variance, normalization_offset, normalization_scale,
+                                     normalization_epsilon)
+
+
 # Create model
 def multilayer_perceptron(x, w, b):
-    x = tf.reshape(x, [-1, 32*32])
-    # Hidden layer with RELU activation
+    # Normalize x
+    x = normalize(x)
+
+    # Reshape image to flat array
+    x = tf.reshape(x, [-1, n_input])
+
+    # Hidden layer 1 with RELU activation
     layer_1 = tf.add(tf.matmul(x, w['h1']), b['b1'])
-    layer_1 = tf.nn.relu(layer_1)  # TRY MORE ACTIVATION FUNCTIONS (tanh, leaky_relu, sigmoid)
-    # Hidden layer with RELU activation
+    layer_1 = tf.nn.relu(layer_1)
+
+    # Hidden layer 2 with RELU activation
     layer_2 = tf.add(tf.matmul(layer_1, w['h2']), b['b2'])
     layer_2 = tf.nn.relu(layer_2)
+
     # Output layer with linear activation
     out_layer = tf.matmul(layer_2, w['out']) + b['out']
 
@@ -62,7 +77,7 @@ accuracy = tf.reduce_mean(tf.cast(correct_prediction, "float32"))
 # Define loss and optimizer
 cost = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(logits=pred, labels=Y))
 
-# TRY MORE OPTIMIZERS (ada, adagrad, ... )
+# Optimizer
 optimizer = tf.train.AdamOptimizer(learning_rate=learning_rate).minimize(cost)
 
 # Initializing the variables
