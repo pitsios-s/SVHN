@@ -1,127 +1,133 @@
-from __future__ import print_function
 import tensorflow as tf
-
-# Import MNIST data
-from tensorflow.examples.tutorials.mnist import input_data
-mnist = input_data.read_data_sets("/tmp/data/", one_hot=True)
-
+from svhn import SVHN
 
 # Parameters
 learning_rate = 0.001
-training_iters = 500000
-batch_size = 128
-display_step = 100
+iterations = 50000
+batch_size = 50
+display_step = 1000
 
 # Network Parameters
-n_input = 784  # MNIST data input (img shape: 28*28)
-n_classes = 10  # MNIST total classes (0-9 digits)
-dropout = 0.75  # Dropout, probability to keep units                  ##### play
+channels = 3
+image_size = 32
+n_classes = 10
+dropout = 0.9
+hidden = 128
+depth_1 = 16
+depth_2 = 32
+depth_3 = 64
+filter_size = 5
+normalization_offset = 0.0  # beta
+normalization_scale = 1.0  # gamma
+normalization_epsilon = 0.001  # epsilon
 
-# tf Graph input
-X = tf.placeholder(tf.float32, [None, n_input])
+
+def weight_variable(shape):
+    return tf.Variable(tf.truncated_normal(shape, stddev=0.1))
+
+
+def bias_variable(shape):
+    return tf.Variable(tf.constant(1.0, shape=shape))
+
+
+def convolution(x, w):
+    return tf.nn.conv2d(x, w, strides=[1, 1, 1, 1], padding="SAME")
+
+
+def max_pool(x):
+    return tf.nn.max_pool(x, ksize=[1, 2, 2, 1], strides=[1, 2, 2, 1], padding="SAME")
+
+
+# Load data
+svhn = SVHN("../res", n_classes, use_extra=True, gray=False)
+
+# Create the model
+X = tf.placeholder(tf.float32, [None, image_size, image_size, channels])
 Y = tf.placeholder(tf.float32, [None, n_classes])
-keep_prob = tf.placeholder(tf.float32)  # dropout (keep probability)
 
 
-# Create some wrappers for simplicity
-def conv2d(x, w, b, strides=1):
-    # Conv2D wrapper, with bias and relu activation
-    x = tf.nn.conv2d(x, w, strides=[1, strides, strides, 1], padding='SAME')
-    x = tf.nn.bias_add(x, b)
-    return tf.nn.relu(x)
-
-
-def maxpool2d(x, k=2):
-    # MaxPool2D wrapper
-    # other option is average pooling (or combination)
-    return tf.nn.max_pool(x, ksize=[1, k, k, 1], strides=[1, k, k, 1], padding='SAME')
-
-
-# Create model
-def conv_net(x, w, b, d):
-    # Reshape input picture
-    x = tf.reshape(x, shape=[-1, 32, 32, 1])  # ?
-    #
-    # Convolution Layer
-    conv1 = conv2d(x, w['wc1'], b['bc1'])
-    # Max Pooling (down-sampling)
-    conv1 = maxpool2d(conv1, k=2)
-    #
-    # Convolution Layer
-    conv2 = conv2d(conv1, w['wc2'], b['bc2'])
-    # Max Pooling (down-sampling)
-    conv2 = maxpool2d(conv2, k=2)
-    #
-    # Fully connected layer
-    # Reshape conv2 output to fit fully connected layer input
-    fc1 = tf.reshape(conv2, [-1, w['wd1'].get_shape().as_list()[0]])
-    fc1 = tf.add(tf.matmul(fc1, w['wd1']), b['bd1'])
-    fc1 = tf.nn.relu(fc1)
-    # Apply Dropout
-    fc1 = tf.nn.dropout(fc1, d)
-    #
-    # Output, class prediction
-    out = tf.add(tf.matmul(fc1, w['out']), b['out'])
-
-    return out
-
-
-# Store layers weight & bias
+# Weights & Biases
 weights = {
-    # 5x5 conv, 1 input, 32 outputs
-    'wc1': tf.Variable(tf.random_normal([5, 5, 1, 32])),
-    # 5x5 conv, 32 inputs, 64 outputs
-    'wc2': tf.Variable(tf.random_normal([5, 5, 32, 64])),
-    # fully connected, 7*7*64 inputs, 1024 outputs
-    'wd1': tf.Variable(tf.random_normal([7*7*64, 1024])),
-    # 1024 inputs, 10 outputs (class prediction)
-    'out': tf.Variable(tf.random_normal([1024, n_classes]))
+    "layer1": weight_variable([filter_size, filter_size, channels, depth_1]),
+    "layer2": weight_variable([filter_size, filter_size, depth_1, depth_2]),
+    "layer3": weight_variable([filter_size, filter_size, depth_2, depth_3]),
+    "layer4": weight_variable([image_size // 8 * image_size // 8 * depth_3, hidden]),
+    "layer5": weight_variable([hidden, n_classes])
 }
 
 biases = {
-    'bc1': tf.Variable(tf.random_normal([32])),
-    'bc2': tf.Variable(tf.random_normal([64])),
-    'bd1': tf.Variable(tf.random_normal([1024])),
-    'out': tf.Variable(tf.random_normal([n_classes]))
+    "layer1": bias_variable([depth_1]),
+    "layer2": bias_variable([depth_2]),
+    "layer3": bias_variable([depth_3]),
+    "layer4": bias_variable([hidden]),
+    "layer5": bias_variable([n_classes])
 }
 
-# Construct model
-pred = conv_net(X, weights, biases, keep_prob)
 
-# Define loss and optimizer
-cost = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(logits=pred, labels=Y))
-optimizer = tf.train.AdamOptimizer(learning_rate=learning_rate).minimize(cost)
+def normalize(x):
+    """ Applies batch normalization """
+    mean, variance = tf.nn.moments(x, [1, 2, 3], keep_dims=True)
+    return tf.nn.batch_normalization(x, mean, variance, normalization_offset, normalization_scale,
+                                     normalization_epsilon)
 
-# Evaluate model
-correct_pred = tf.equal(tf.argmax(pred, 1), tf.argmax(Y, 1))
-accuracy = tf.reduce_mean(tf.cast(correct_pred, tf.float32))
 
-# Initializing the variables
-init = tf.global_variables_initializer()
+def cnn(x):
+    # Batch normalization
+    x = normalize(x)
 
-# Launch the graph
+    # Convolution 1 -> RELU -> Max Pool
+    convolution1 = convolution(x, weights["layer1"])
+    hidden1 = tf.nn.relu(convolution1 + biases["layer1"])
+    hidden2 = max_pool(hidden1)
+
+    # Convolution 2 -> RELU -> Max Pool
+    convolution2 = convolution(hidden2, weights["layer2"])
+    hidden3 = tf.nn.relu(convolution2 + biases["layer2"])
+    hidden4 = max_pool(hidden3)
+
+    # Convolution 3 -> RELU -> Max Pool
+    convolution3 = convolution(hidden4, weights["layer3"])
+    hidden5 = tf.nn.relu(convolution3 + biases["layer3"])
+    hidden6 = max_pool(hidden5)
+
+    # Fully Connected Layer
+    shape = hidden6.get_shape().as_list()
+    reshape = tf.reshape(hidden6, [-1, shape[1] * shape[2] * shape[3]])
+    hidden7 = tf.nn.relu(tf.matmul(reshape, weights["layer4"]) + biases["layer4"])
+
+    # Dropout Layer
+    keep_prob_constant = tf.placeholder(tf.float32)
+    dropout_layer = tf.nn.dropout(hidden7, keep_prob_constant)
+
+    return tf.matmul(dropout_layer, weights["layer5"]) + biases["layer5"], keep_prob_constant
+
+
+# Build the graph for the deep net
+y_conv, keep_prob = cnn(X)
+
+cost = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(labels=Y, logits=y_conv))
+optimizer = tf.train.AdamOptimizer(learning_rate).minimize(cost)
+correct_prediction = tf.equal(tf.argmax(y_conv, 1), tf.argmax(Y, 1))
+accuracy = tf.reduce_sum(tf.cast(correct_prediction, tf.float32))
+
 with tf.Session() as sess:
-    sess.run(init)
-    step = 1
-    # Keep training until reach max iterations
-    while step * batch_size < training_iters:
-        batch_x, batch_y = mnist.train.next_batch(batch_size)
-        # Run optimization op (backprop)
-        sess.run(optimizer, feed_dict={X: batch_x, Y: batch_y, keep_prob: dropout})
-        if step % display_step == 0:
-            # Calculate batch loss and accuracy
-            loss, acc = sess.run([cost, accuracy], feed_dict={X: batch_x, Y: batch_y, keep_prob: 1.})
-            # Calculate accuracy for 256 mnist test images
-            t_acc = sess.run(accuracy, feed_dict={
-                X: mnist.test.images[:256],
-                Y: mnist.test.labels[:256], keep_prob: 1.})
-            print(
-                "Iter " + str(step*batch_size) +
-                ", Minibatch Loss= " + "{:.6f}".format(loss) +
-                ", Training Accuracy= " + "{:.5f}".format(acc) +
-                ", Testing Accuracy= " + "{:.5f}".format(t_acc)
-            )
-        step += 1
-    print("Optimization Finished!")
+    sess.run(tf.global_variables_initializer())
+    for i in range(iterations):
+        offset = (i * batch_size) % (svhn.train_examples - batch_size)
+        batch_x = svhn.train_data[offset:(offset + batch_size)]
+        batch_y = svhn.train_labels[offset:(offset + batch_size)]
 
-# useful http://www.wildml.com/2015/11/understanding-convolutional-neural-networks-for-nlp/
+        _, c = sess.run([optimizer, cost], feed_dict={X: batch_x, Y: batch_y, keep_prob: dropout})
+
+        if i % display_step == 0:
+            train_accuracy = accuracy.eval(feed_dict={X: batch_x, Y: batch_y, keep_prob: 1.0})
+            print('step %d, training accuracy %g' % (i, train_accuracy / batch_size))
+
+    # Test the model by measuring it's accuracy
+    correct_predictions = 0
+    test_iterations = svhn.test_examples / batch_size + 1
+    for i in range(test_iterations):
+        batch_x, batch_y = (svhn.test_data[i * batch_size:(i + 1) * batch_size],
+                            svhn.test_labels[i * batch_size:(i + 1) * batch_size])
+        correct_predictions += accuracy.eval(feed_dict={X: batch_x, Y: batch_y, keep_prob: 1.0})
+    print('Test accuracy %g' % (correct_predictions / svhn.test_examples))
