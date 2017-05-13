@@ -11,7 +11,7 @@ display_step = 1000
 channels = 3
 image_size = 32
 n_classes = 10
-dropout = 0.9
+dropout = 0.8
 hidden = 128
 depth_1 = 16
 depth_2 = 32
@@ -77,27 +77,27 @@ def cnn(x):
 
     # Convolution 1 -> RELU -> Max Pool
     convolution1 = convolution(x, weights["layer1"])
-    hidden1 = tf.nn.relu(convolution1 + biases["layer1"])
-    hidden2 = max_pool(hidden1)
+    relu1 = tf.nn.relu(convolution1 + biases["layer1"])
+    maxpool1 = max_pool(relu1)
 
     # Convolution 2 -> RELU -> Max Pool
-    convolution2 = convolution(hidden2, weights["layer2"])
-    hidden3 = tf.nn.relu(convolution2 + biases["layer2"])
-    hidden4 = max_pool(hidden3)
+    convolution2 = convolution(maxpool1, weights["layer2"])
+    relu2 = tf.nn.relu(convolution2 + biases["layer2"])
+    maxpool2 = max_pool(relu2)
 
     # Convolution 3 -> RELU -> Max Pool
-    convolution3 = convolution(hidden4, weights["layer3"])
-    hidden5 = tf.nn.relu(convolution3 + biases["layer3"])
-    hidden6 = max_pool(hidden5)
+    convolution3 = convolution(maxpool2, weights["layer3"])
+    relu3 = tf.nn.relu(convolution3 + biases["layer3"])
+    maxpool3 = max_pool(relu3)
 
     # Fully Connected Layer
-    shape = hidden6.get_shape().as_list()
-    reshape = tf.reshape(hidden6, [-1, shape[1] * shape[2] * shape[3]])
-    hidden7 = tf.nn.relu(tf.matmul(reshape, weights["layer4"]) + biases["layer4"])
+    shape = maxpool3.get_shape().as_list()
+    reshape = tf.reshape(maxpool3, [-1, shape[1] * shape[2] * shape[3]])
+    fc = tf.nn.relu(tf.matmul(reshape, weights["layer4"]) + biases["layer4"])
 
     # Dropout Layer
     keep_prob_constant = tf.placeholder(tf.float32)
-    dropout_layer = tf.nn.dropout(hidden7, keep_prob_constant)
+    dropout_layer = tf.nn.dropout(fc, keep_prob_constant)
 
     return tf.matmul(dropout_layer, weights["layer5"]) + biases["layer5"], keep_prob_constant
 
