@@ -111,17 +111,30 @@ correct_prediction = tf.equal(tf.argmax(y_conv, 1), tf.argmax(Y, 1))
 accuracy = tf.reduce_sum(tf.cast(correct_prediction, tf.float32))
 
 with tf.Session() as sess:
+    # Initialize Tensorflow variables
     sess.run(tf.global_variables_initializer())
+
+    # Variables useful for batch creation
+    start = 0
+    end = 0
+
     for i in range(iterations):
-        offset = (i * batch_size) % (svhn.train_examples - batch_size)
-        batch_x = svhn.train_data[offset:(offset + batch_size)]
-        batch_y = svhn.train_labels[offset:(offset + batch_size)]
+        # Construct the batch
+        if start == svhn.train_examples:
+            start = 0
+        end = min(svhn.train_examples, start + batch_size)
 
-        _, c = sess.run([optimizer, cost], feed_dict={X: batch_x, Y: batch_y, keep_prob: dropout})
+        batch_x = svhn.train_data[start:end]
+        batch_y = svhn.train_labels[start:end]
 
-        if i % display_step == 0:
-            train_accuracy = accuracy.eval(feed_dict={X: batch_x, Y: batch_y, keep_prob: 1.0})
-            print('step %d, training accuracy %g' % (i, train_accuracy / batch_size))
+        start = end
+
+        # Run the optimizer
+        sess.run(optimizer, feed_dict={X: batch_x, Y: batch_y, keep_prob: dropout})
+
+        if (i + 1) % display_step == 0:
+            _accuracy, _cost = sess.run([accuracy, cost], feed_dict={X: batch_x, Y: batch_y, keep_prob: 1.0})
+            print('Step: %g, Training Accuracy: %g, Batch Loss: %g' % (i + 1, _accuracy / batch_size, _cost))
 
     # Test the model by measuring it's accuracy
     correct_predictions = 0
