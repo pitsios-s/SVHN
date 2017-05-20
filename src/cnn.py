@@ -142,7 +142,7 @@ with tf.Session() as sess:
 
         if (i + 1) % display_step == 0 or i == 0:
             _accuracy, _cost = sess.run([accuracy, cost], feed_dict={X: batch_x, Y: batch_y, keep_prob: 1.0})
-            print('Step: %g, Training Accuracy: %g, Batch Loss: %g' % (i + 1, _accuracy, _cost))
+            print("Step: {0:6d}, Training Accuracy: {1:5f}, Batch Loss: {2:5f}".format(i + 1, _accuracy, _cost))
             train_accuracies.append(_accuracy)
             train_losses.append(_cost)
 
@@ -154,7 +154,7 @@ with tf.Session() as sess:
         _accuracy, _cost = sess.run([accuracy, cost], feed_dict={X: batch_x, Y: batch_y, keep_prob: 1.0})
         test_accuracies.append(_accuracy)
         test_losses.append(_cost)
-    print('Mean Test Accuracy: %g, Mean Test Loss: %g' % (np.mean(test_accuracies), np.mean(test_losses)))
+    print("Mean Test Accuracy: {0:5f}, Mean Test Loss: {1:5f}".format(np.mean(test_accuracies), np.mean(test_losses)))
 
     # Plot batch accuracy and loss for both train and test sets
     plt.style.use("ggplot")
