@@ -27,6 +27,10 @@ class SVHN:
             self.train_examples += extra_examples
             self.train_data = np.append(self.train_data, self.__store_data(extra['X'].astype("float32"),
                                                                            extra_examples, gray), axis=0)
+            # shuffle values
+            idx = np.arange(self.train_data.shape[0])
+            self.train_data = self.train_data[idx]
+            self.train_labels = self.train_labels[idx]
 
     def __one_hot_encode(self, data):
         """Creates a one-hot encoding vector

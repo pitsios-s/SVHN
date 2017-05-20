@@ -1,5 +1,7 @@
 import tensorflow as tf
 from svhn import SVHN
+import matplotlib.pyplot as plt
+import numpy as np
 
 # Parameters
 learning_rate = 0.001
@@ -108,7 +110,7 @@ y_conv, keep_prob = cnn(X)
 cost = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(labels=Y, logits=y_conv))
 optimizer = tf.train.AdamOptimizer(learning_rate).minimize(cost)
 correct_prediction = tf.equal(tf.argmax(y_conv, 1), tf.argmax(Y, 1))
-accuracy = tf.reduce_sum(tf.cast(correct_prediction, tf.float32))
+accuracy = tf.reduce_mean(tf.cast(correct_prediction, tf.float32))
 
 with tf.Session() as sess:
     # Initialize Tensorflow variables
@@ -117,6 +119,12 @@ with tf.Session() as sess:
     # Variables useful for batch creation
     start = 0
     end = 0
+
+    # The accuracy and loss for every iteration in train and test set
+    train_accuracies = []
+    train_losses = []
+    test_accuracies = []
+    test_losses = []
 
     for i in range(iterations):
         # Construct the batch
@@ -132,15 +140,56 @@ with tf.Session() as sess:
         # Run the optimizer
         sess.run(optimizer, feed_dict={X: batch_x, Y: batch_y, keep_prob: dropout})
 
-        if (i + 1) % display_step == 0:
+        if (i + 1) % display_step == 0 or i == 0:
             _accuracy, _cost = sess.run([accuracy, cost], feed_dict={X: batch_x, Y: batch_y, keep_prob: 1.0})
-            print('Step: %g, Training Accuracy: %g, Batch Loss: %g' % (i + 1, _accuracy / batch_size, _cost))
+            print('Step: %g, Training Accuracy: %g, Batch Loss: %g' % (i + 1, _accuracy, _cost))
+            train_accuracies.append(_accuracy)
+            train_losses.append(_cost)
 
     # Test the model by measuring it's accuracy
-    correct_predictions = 0
     test_iterations = svhn.test_examples / batch_size + 1
     for i in range(test_iterations):
         batch_x, batch_y = (svhn.test_data[i * batch_size:(i + 1) * batch_size],
                             svhn.test_labels[i * batch_size:(i + 1) * batch_size])
-        correct_predictions += accuracy.eval(feed_dict={X: batch_x, Y: batch_y, keep_prob: 1.0})
-    print('Test accuracy %g' % (correct_predictions / svhn.test_examples))
+        _accuracy, _cost = sess.run([accuracy, cost], feed_dict={X: batch_x, Y: batch_y, keep_prob: 1.0})
+        test_accuracies.append(_accuracy)
+        test_losses.append(_cost)
+    print('Mean Test Accuracy: %g, Mean Test Loss: %g' % (np.mean(test_accuracies), np.mean(test_losses)))
+
+    # Plot batch accuracy and loss for both train and test sets
+    plt.style.use("ggplot")
+    fig, ax = plt.subplots(2, 2)
+
+    # Train Accuracy
+    ax[0, 0].set_title("Train Accuracy per Batch")
+    ax[0, 0].set_xlabel("Batch")
+    ax[0, 0].set_ylabel("Accuracy")
+    ax[0, 0].set_ylim([0, 1.05])
+    ax[0, 0].plot(range(0, iterations + 1, display_step), train_accuracies, linewidth=1, color="darkgreen")
+
+    # Train Loss
+    ax[0, 1].set_title("Train Loss per Batch")
+    ax[0, 1].set_xlabel("Batch")
+    ax[0, 1].set_ylabel("Loss")
+    ax[0, 1].set_ylim([0, max(train_losses)])
+    ax[0, 1].plot(range(0, iterations + 1, display_step), train_losses, linewidth=1, color="darkred")
+
+    # TestAccuracy
+    ax[1, 0].set_title("Test Accuracy per Batch")
+    ax[1, 0].set_xlabel("Batch")
+    ax[1, 0].set_ylabel("Accuracy")
+    ax[1, 0].set_ylim([0, 1.05])
+    ax[1, 0].plot(range(0, test_iterations), test_accuracies, linewidth=1, color="darkgreen")
+
+    # Test Loss
+    ax[1, 1].set_title("Test Loss per Batch")
+    ax[1, 1].set_xlabel("Batch")
+    ax[1, 1].set_ylabel("Loss")
+    ax[1, 1].set_ylim([0, max(test_losses)])
+    ax[1, 1].plot(range(0, test_iterations), test_losses, linewidth=1, color="darkred")
+
+    for i in range(1, iterations, svhn.train_examples / batch_size):
+        ax[0, 0].axvline(x=i, ymin=0, ymax=1.05, linewidth=2, color="orange", label="skdlhv")
+        ax[0, 1].axvline(x=i, ymin=0, ymax=max(train_losses), linewidth=2, color="orange")
+
+    plt.show()
