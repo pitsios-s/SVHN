@@ -25,6 +25,8 @@ The source code resided under the `src` directory and contains the following fil
 
 Finally, for the code to run properly, the data files should be placed in a directory called `res`, at the same level of `src` directory. The dataset names are "train_32x32.mat" for the training set, "test_32x32.mat" for the test set and "extra_32x32.mat" for an additional training set. The third file is optional, but if used, it dramatically increases prediction accuracy.
 
+Directory `report` contains a short report for our work on the project, while `presentation` directory contains the file of our final presentation.
+
 ***Note:*** Current implementation implies that the whole dataset(including extra cases) can fit into RAM. This typically requires about 9GB RAM. This will be fixed in the future.
 
 #### This project was conducted as part of the "Content Analytics" class of the M.Sc. in Business Analytics, Athens University of Economics & Business.
